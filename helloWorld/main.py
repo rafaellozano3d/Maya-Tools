@@ -6,4 +6,4 @@ Created on 12 dic. 2017
 
 import maya.cmds as cmds
 
-print "Hola Mundo"
+print "Hello World"
