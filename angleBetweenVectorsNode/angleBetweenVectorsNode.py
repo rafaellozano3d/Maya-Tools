@@ -4,6 +4,8 @@ Created on 12 dic. 2017
 @author: rafaellozano3d.com
 '''
 
+import sys
+import math
 import maya.OpenMaya as om
 import maya.OpenMayaMPx as omp
 
@@ -26,12 +28,85 @@ def MAKE_OUTPUT(attr):
 
 class angleBetweenVectorsNode(omp.MPxNode):
 
+    v1 = om.MObject()
+    v1x = om.MObject()
+    kV1XAttrLongName = "v1 X"
+    v1y = om.MObject()
+    v1z = om.MObject()
+
+    v2 = om.MObject()
+    v2x = om.MObject()
+    v2y = om.MObject()
+    v2z = om.MObject()
+
+    v3 = om.MObject()
+    v3x = om.MObject()
+    v3y = om.MObject()
+    v3z = om.MObject()
+
     def __init__(self):
         print "> angleBetweenVectorsNode.__init__"
         omp.MPxNode.__init__(self)
 
     def compute(self, plug, block):
         print "> compute"
+
+        try:
+            v1x_dh = block.inputValue(angleBetweenVectorsNode.v1x)
+            v1y_dh = block.inputValue(angleBetweenVectorsNode.v1y)
+            v1z_dh = block.inputValue(angleBetweenVectorsNode.v1z)
+
+            v2x_dh = block.inputValue(angleBetweenVectorsNode.v2x)
+            v2y_dh = block.inputValue(angleBetweenVectorsNode.v2y)
+            v2z_dh = block.inputValue(angleBetweenVectorsNode.v2z)
+
+            v3x_dh = block.inputValue(angleBetweenVectorsNode.v3x)
+            v3y_dh = block.inputValue(angleBetweenVectorsNode.v3y)
+            v3z_dh = block.inputValue(angleBetweenVectorsNode.v3z)
+
+        except ImportError:
+            sys.stderr.write("Failed to get MDataHandle")
+
+        v1x_value = v1x_dh.asFloat()
+        v1y_value = v1y_dh.asFloat()
+        v1z_value = v1z_dh.asFloat()
+
+        v2x_value = v2x_dh.asFloat()
+        v2y_value = v2y_dh.asFloat()
+        v2z_value = v2z_dh.asFloat()
+
+        v3x_value = v3x_dh.asFloat()
+        v3y_value = v3y_dh.asFloat()
+        v3z_value = v3z_dh.asFloat()
+
+        v3x_dh.setFloat(v1x_value*v2x_value)
+
+        v1_vector = om.MVector()
+        v1_vector.x = v1x_value
+        v1_vector.y = v1y_value
+        v1_vector.z = v1z_value
+
+        v2_vector = om.MVector()
+        v2_vector.x = v2x_value
+        v2_vector.y = v2y_value
+        v2_vector.z = v2z_value
+
+        # v1_vector.normalize()
+        # v2_vector.normalize()
+
+        v1_aux = om.MVector(0.0, 1.0, 2.0)
+        v2_aux = om.MVector(1.0, 2.0, 0.0)
+
+        v1_aux.normalize()
+        v2_aux.normalize()
+
+        v3_vector = om.MVector()
+        v3_vector = v1_aux ^ v2_aux
+
+        print "ok1"
+        # print "v3x = ", math.degrees(v3_vector.x), " v3y = ", math.degrees(v3_vector.y), " v3z = ", math.degrees(v3_vector.z)
+        print "v1x = ", v1_vector.x, " v1y = ", v1_vector.y, " v1z = ", v1_vector.z
+        print "ok2"
 
 
 def nodeCreator():
@@ -41,73 +116,65 @@ def nodeCreator():
 def nodeInitializer():
     print "> nodeInitializer"
     #Create V1 Plug
-    cmpV1Attr = om.MFnCompoundAttribute()
-    v1CmpAttr = cmpV1Attr.create("v1", "v1")
-
     nAttr = om.MFnNumericAttribute()
-    v1XAttr = nAttr.create("v1X", "v1X", om.MFnNumericData.kFloat)
-    cmpV1Attr.addChild(v1XAttr)
+    cAttr = om.MFnCompoundAttribute()
 
-    nAttr = om.MFnNumericAttribute()
-    v1YAttr = nAttr.create("v1Y", "v1Y", om.MFnNumericData.kFloat)
-    cmpV1Attr.addChild(v1YAttr)
+    # create input attributes
+    angleBetweenVectorsNode.v1x = nAttr.create("v1 X", "v1x",
+                                               om.MFnNumericData.kFloat, 2.0)
+    MAKE_INPUT(nAttr)
+    angleBetweenVectorsNode.v1y = nAttr.create("v1 Y", "v1y",
+                                               om.MFnNumericData.kFloat)
+    MAKE_INPUT(nAttr)
+    angleBetweenVectorsNode.v1z = nAttr.create("v1 Z", "v1z",
+                                               om.MFnNumericData.kFloat)
+    MAKE_INPUT(nAttr)
 
-    nAttr = om.MFnNumericAttribute()
-    v1ZAttr = nAttr.create("v1Z", "v1Z", om.MFnNumericData.kFloat)
-    cmpV1Attr.addChild(v1ZAttr)
+    angleBetweenVectorsNode.v2x = nAttr.create("v2 X", "v2x",
+                                               om.MFnNumericData.kFloat, 2.0)
+    MAKE_INPUT(nAttr)
+    angleBetweenVectorsNode.v2y = nAttr.create("v2 Y", "v2y",
+                                               om.MFnNumericData.kFloat)
+    MAKE_INPUT(nAttr)
+    angleBetweenVectorsNode.v2z = nAttr.create("v2 Z", "v2z",
+                                               om.MFnNumericData.kFloat)
+    MAKE_INPUT(nAttr)
 
-    angleBetweenVectorsNode.addAttribute(v1CmpAttr)
+    angleBetweenVectorsNode.v3x = nAttr.create("v3 X", "v3x",
+                                               om.MFnNumericData.kFloat)
+    angleBetweenVectorsNode.v3y = nAttr.create("v3 Y", "v3y",
+                                               om.MFnNumericData.kFloat)
+    angleBetweenVectorsNode.v3z = nAttr.create("v3 Z", "v3z",
+                                               om.MFnNumericData.kFloat)
+    MAKE_OUTPUT(nAttr)
 
-    cmpV1Attr.setKeyable(True)
-    cmpV1Attr.setStorable(True)
-    cmpV1Attr.setWritable(True)
+    # create compound attributes
+    angleBetweenVectorsNode.v1 = cAttr.create("v1", "v1")
+    cAttr.addChild(angleBetweenVectorsNode.v1x)
+    cAttr.addChild(angleBetweenVectorsNode.v1y)
+    cAttr.addChild(angleBetweenVectorsNode.v1z)
 
-    # Create V2 Plug
-    cmpV2Attr = om.MFnCompoundAttribute()
-    v2CmpAttr = cmpV2Attr.create("v2", "v2")
+    angleBetweenVectorsNode.v2 = cAttr.create("v2", "v2")
+    cAttr.addChild(angleBetweenVectorsNode.v2x)
+    cAttr.addChild(angleBetweenVectorsNode.v2y)
+    cAttr.addChild(angleBetweenVectorsNode.v2z)
 
-    nAttr = om.MFnNumericAttribute()
-    v2XAttr = nAttr.create("v2X", "v2X", om.MFnNumericData.kFloat)
-    cmpV2Attr.addChild(v2XAttr)
+    angleBetweenVectorsNode.v3 = cAttr.create("v3", "v3")
+    cAttr.addChild(angleBetweenVectorsNode.v3x)
+    cAttr.addChild(angleBetweenVectorsNode.v3y)
+    cAttr.addChild(angleBetweenVectorsNode.v3z)
 
-    nAttr = om.MFnNumericAttribute()
-    v2YAttr = nAttr.create("v2Y", "v2Y", om.MFnNumericData.kFloat)
-    cmpV2Attr.addChild(v2YAttr)
+    # add attributes
+    angleBetweenVectorsNode.addAttribute(angleBetweenVectorsNode.v1)
+    angleBetweenVectorsNode.addAttribute(angleBetweenVectorsNode.v2)
+    angleBetweenVectorsNode.addAttribute(angleBetweenVectorsNode.v3)
 
-    nAttr = om.MFnNumericAttribute()
-    v2ZAttr = nAttr.create("v2Z", "v2Z", om.MFnNumericData.kFloat)
-    cmpV2Attr.addChild(v2ZAttr)
+    # Setup which attributes affect each other
+    angleBetweenVectorsNode.attributeAffects(angleBetweenVectorsNode.v1,
+                                             angleBetweenVectorsNode.v3)
+    angleBetweenVectorsNode.attributeAffects(angleBetweenVectorsNode.v2,
+                                             angleBetweenVectorsNode.v3)
 
-    angleBetweenVectorsNode.addAttribute(v2CmpAttr)
-
-    cmpV2Attr.setKeyable(True)
-    cmpV2Attr.setStorable(True)
-    cmpV2Attr.setWritable(True)
-
-    # Create V3 Plug
-    cmpV3Attr = om.MFnCompoundAttribute()
-    v3CmpAttr = cmpV3Attr.create("v3", "v3")
-
-    nAttr = om.MFnNumericAttribute()
-    v3XAttr = nAttr.create("v3X", "v3X", om.MFnNumericData.kFloat)
-    cmpV3Attr.addChild(v3XAttr)
-
-    nAttr = om.MFnNumericAttribute()
-    v3YAttr = nAttr.create("v3Y", "v3Y", om.MFnNumericData.kFloat)
-    cmpV3Attr.addChild(v3YAttr)
-
-    nAttr = om.MFnNumericAttribute()
-    v3ZAttr = nAttr.create("v3Z", "v3Z", om.MFnNumericData.kFloat)
-    cmpV3Attr.addChild(v3ZAttr)
-
-    angleBetweenVectorsNode.addAttribute(v3CmpAttr)
-
-    cmpV3Attr.setKeyable(True)
-    cmpV3Attr.setStorable(True)
-    cmpV3Attr.setWritable(True)
-
-    angleBetweenVectorsNode.attributeAffects(v1CmpAttr, cmpV3Attr)
-    angleBetweenVectorsNode.attributeAffects(v2CmpAttr, cmpV3Attr)
 
 
 def initializePlugin(obj):
