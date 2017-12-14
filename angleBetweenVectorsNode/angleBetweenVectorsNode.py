@@ -167,7 +167,6 @@ def nodeInitializer():
                                              angleBetweenVectorsNode.v3)
 
 
-
 def initializePlugin(obj):
     # Register node
     plugin = omp.MFnPlugin(obj)
