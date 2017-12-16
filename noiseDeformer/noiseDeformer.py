@@ -2,10 +2,10 @@ import sys
 import random
 import maya.OpenMaya as om
 import maya.OpenMayaMPx as omp
-import maya.cmds as cmds
 
 nodeTypeName = "noiseDeformer"
 nodeTypeId = om.MTypeId(0x33338)
+
 
 def MAKE_INPUT(attr):
     # Macro to define an attribute as input attribute
@@ -24,27 +24,22 @@ def MAKE_OUTPUT(attr):
 
 
 class noiseDeformer(omp.MPxDeformerNode):
-
-    vector = om.MObject()
-    vectorX = om.MObject()
-    vectorY = om.MObject()
-    vectorZ = om.MObject()
-
+    # Main methods and node attributes
+    seed = om.MObject()
     min = om.MObject()
     max = om.MObject()
+    locatorMatrix = om.MObject()
+    mesh = om.MObject()
 
     def __init__(self):
         omp.MPxDeformerNode.__init__(self)
 
     def deform(self, block, geoIterator, matrix, geometryIndex):
-        # Mesh attributes
-        print "ok1"
-        kApiVersion = cmds.about(apiVersion=True)
-
+        # Configure mesh and get all inputs attributes
         kInput = omp.cvar.MPxGeometryFilter_input
-        inputArray_dh = block.inputArrayValue(kInput)
+        inputArray_dh = block.outputArrayValue(kInput)
         inputArray_dh.jumpToElement(geometryIndex)
-        inputElement_dh = inputArray_dh.inputValue()
+        inputElement_dh = inputArray_dh.outputValue()
 
         kInputGeom = omp.cvar.MPxGeometryFilter_inputGeom
         inputGeom_dh = inputElement_dh.child(kInputGeom)
@@ -54,97 +49,157 @@ class noiseDeformer(omp.MPxDeformerNode):
         dataHandleEnvelope = block.inputValue(kEnvelope)
         envelope_value = dataHandleEnvelope.asFloat()
 
-        # Custom attributes
+        # Getting custom inputs attributes data handles
         try:
-            vectorX_dh = block.inputValue(noiseDeformer.vectorX)
-            vectorY_dh = block.inputValue(noiseDeformer.vectorY)
-            vectorZ_dh = block.inputValue(noiseDeformer.vectorZ)
+            seed_dh = block.inputValue(noiseDeformer.seed)
             min_dh = block.inputValue(noiseDeformer.min)
             max_dh = block.inputValue(noiseDeformer.max)
+            matrix_dh = block.inputValue(noiseDeformer.locatorMatrix)
         except ImportError:
             sys.stderr.write("Failed to get MDataHandle")
 
+        # Getting values of custom inputs attributes through data handles
+        seed_value = seed_dh.asFloat()
         min_value = min_dh.asFloat()
         max_value = max_dh.asFloat()
+        locatorMatrix_value = matrix_dh.asMatrix()
+
+        # Getting locator transform matrix
+        mTransMatrix = om.MTransformationMatrix(locatorMatrix_value)
+        locatorTranslation_value = mTransMatrix.getTranslation(
+            om.MSpace.kObject)
+
+        # Getting locator coordinates
+        locatorPoint = om.MPoint(om.MVector(locatorTranslation_value[0],
+                                            locatorTranslation_value[1],
+                                            locatorTranslation_value[2]))
+
+        meshVector = om.MVector(
+            om.MFnDependencyNode(noiseDeformer.mesh).
+            findPlug("translateX").asFloat(),
+            om.MFnDependencyNode(noiseDeformer.mesh).
+            findPlug("translateY").asFloat(),
+            om.MFnDependencyNode(noiseDeformer.mesh).
+            findPlug("translateZ").asFloat())
+
+        meshPoint = om.MPoint(meshVector)
+
+        distance = meshPoint.distanceTo(locatorPoint)
 
         # Get mesh normals
         mFloatVectorArray_normal = om.MFloatVectorArray()
         mFnMesh = om.MFnMesh(inMesh)
-        mFnMesh.getVertexNormals(False, mFloatVectorArray_normal, om.MSpace.kObject)
+        mFnMesh.getVertexNormals(False,
+                                 mFloatVectorArray_normal,
+                                 om.MSpace.kObject)
 
+        # Generate a random seed
+        randomVector = om.MVector()
+        random.seed(seed_value)
 
+        # Temporal array to save all vertices modified
+        mPointArray_meshVertex = om.MPointArray()
+
+        # Iterate around all vertices
         while(not geoIterator.isDone()):
             pointPosition = geoIterator.position()
-            vectorX_dh.setFloat(random.uniform(min_value, max_value))
-            vectorY_dh.setFloat(random.uniform(min_value, max_value))
-            vectorZ_dh.setFloat(random.uniform(min_value, max_value))
 
-            vectorX_value = vectorX_dh.asFloat()
-            vectorY_value = vectorY_dh.asFloat()
-            vectorZ_value = vectorZ_dh.asFloat()
+            # Setting random vector with random values
+            randomVector.x = random.uniform(min_value, max_value)
+            randomVector.y = random.uniform(min_value, max_value)
+            randomVector.z = random.uniform(min_value, max_value)
 
-            # print "vertex = ", pointPosition.x, ",", pointPosition.y, ",", pointPosition.z
-            pointPosition.x = pointPosition.x + vectorX_value * envelope_value
-            pointPosition.y = pointPosition.y + vectorY_value * envelope_value
-            pointPosition.z = pointPosition.z + vectorZ_value * envelope_value
+            # Create a new vertex position
+            pointPosition.x = pointPosition.x + (randomVector.x *
+                                                 envelope_value * distance/10)
+            pointPosition.y = pointPosition.y + (randomVector.y *
+                                                 envelope_value * distance/10)
+            pointPosition.z = pointPosition.z + (randomVector.z *
+                                                 envelope_value * distance/10)
 
-            geoIterator.setPosition(pointPosition)
+            # Save the new position in the temporal array
+            mPointArray_meshVertex.append(pointPosition)
             geoIterator.next()
 
-        print "sale"
+        # When the iterator finish, we replace its vertices values with the
+        # temporal array
+        geoIterator.setAllPositions(mPointArray_meshVertex)
+
+    def accessoryNodeSetup(self, dagModifier):
+        # We create a extra node of type "locator"
+        locator = dagModifier.createNode("locator")
+
+        # Get the locator transform matrix plug
+        mFnDependLocator = om.MFnDependencyNode(locator)
+        mPlugWorld = mFnDependLocator.findPlug("worldMatrix")
+        worldAttr = mPlugWorld.attribute()
+
+        # Connect the plug with our custom node matrix transform plug
+        mStatusConnect = dagModifier.connect(locator, worldAttr,
+                                             self.thisMObject(),
+                                             noiseDeformer.locatorMatrix)
+        return mStatusConnect
+
+    def accessoryAttribute(self):
+        return noiseDeformer.locatorMatrix
+
 
 def deformerCreator():
+    # Get dag path from selected object when create the node
+    selected = om.MSelectionList()
+    om.MGlobal.getActiveSelectionList(selected)
+    selected.getDependNode(0, noiseDeformer.mesh)
+
     nodePtr = omp.asMPxPtr(noiseDeformer())
     return nodePtr
 
+
 def nodeInitializer():
     nAttr = om.MFnNumericAttribute()
-    cAttr = om.MFnCompoundAttribute()
 
     # Create input attributes
-    noiseDeformer.vectorX = nAttr.create("v1 X", "v1x",
-                                               om.MFnNumericData.kFloat)
-    MAKE_INPUT(nAttr)
-    nAttr.setWritable(False)
-    noiseDeformer.vectorY = nAttr.create("v1 Y", "v1y",
-                                               om.MFnNumericData.kFloat)
-    MAKE_INPUT(nAttr)
-    nAttr.setWritable(False)
-    noiseDeformer.vectorZ = nAttr.create("v1 Z", "v1z",
-                                               om.MFnNumericData.kFloat)
-    MAKE_INPUT(nAttr)
-    nAttr.setWritable(False)
-
-    noiseDeformer.min = nAttr.create("minRange", "min", om.MFnNumericData.kFloat, 0.0)
-    MAKE_INPUT(nAttr)
-    noiseDeformer.max = nAttr.create("maxRange", "max", om.MFnNumericData.kFloat, 10.0)
+    noiseDeformer.seed = nAttr.create("Seed", "seed",
+                                      om.MFnNumericData.kFloat,
+                                      0.0)
     MAKE_INPUT(nAttr)
 
-    # create compound attributes
-    noiseDeformer.vector = cAttr.create("vector", "v")
-    cAttr.addChild(noiseDeformer.vectorX)
-    cAttr.addChild(noiseDeformer.vectorY)
-    cAttr.addChild(noiseDeformer.vectorZ)
+    noiseDeformer.min = nAttr.create("rangeA", "rngA",
+                                     om.MFnNumericData.kFloat,
+                                     0.0)
+    MAKE_INPUT(nAttr)
+
+    noiseDeformer.max = nAttr.create("rangeB", "rngB",
+                                     om.MFnNumericData.kFloat,
+                                     1.0)
+    MAKE_INPUT(nAttr)
+
+    mFnMatrixAttr = om.MFnMatrixAttribute()
+    noiseDeformer.locatorMatrix = mFnMatrixAttr.create("MatrixAttribute",
+                                                        "matAttr")
+    mFnMatrixAttr.setStorable(False)
+    mFnMatrixAttr.setConnectable(True)
 
     # add attributes
-    noiseDeformer.addAttribute(noiseDeformer.vector)
+    noiseDeformer.addAttribute(noiseDeformer.seed)
     noiseDeformer.addAttribute(noiseDeformer.min)
     noiseDeformer.addAttribute(noiseDeformer.max)
+    noiseDeformer.addAttribute(noiseDeformer.locatorMatrix)
 
-    kApiVersion = cmds.about(apiVersion=True)
-    if kApiVersion < 201600:
-        outputGeom = omp.cvar.MPxDeformerNode_outputGeom
-    else:
-        outputGeom = omp.cvar.MPxGeometryFilter_outputGeom
+    outputGeom = omp.cvar.MPxGeometryFilter_outputGeom
 
-    noiseDeformer.attributeAffects(noiseDeformer.vector, outputGeom)
+    noiseDeformer.attributeAffects(noiseDeformer.seed, outputGeom)
     noiseDeformer.attributeAffects(noiseDeformer.min, outputGeom)
     noiseDeformer.attributeAffects(noiseDeformer.max, outputGeom)
+    noiseDeformer.attributeAffects(noiseDeformer.locatorMatrix, outputGeom)
+
 
 def initializePlugin(mobject):
     mplugin = omp.MFnPlugin(mobject, "rafaellozano3d.com/devBlog", "1.0")
     try:
-        mplugin.registerNode(nodeTypeName, nodeTypeId, deformerCreator, nodeInitializer, omp.MPxNode.kDeformerNode)
+        mplugin.registerNode(nodeTypeName, nodeTypeId,
+                             deformerCreator,
+                             nodeInitializer,
+                             omp.MPxNode.kDeformerNode)
     except Exception:
         sys.stderr.write("Failed to register node")
         raise
