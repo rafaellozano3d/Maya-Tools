@@ -93,7 +93,7 @@ class noiseDeformer(omp.MPxDeformerNode):
                                  mFloatVectorArray_normal,
                                  om.MSpace.kObject)
 
-        # Generate a random seed
+        # Read de seed input value
         randomVector = om.MVector()
         random.seed(seed_value)
 
@@ -174,8 +174,10 @@ def nodeInitializer():
     MAKE_INPUT(nAttr)
 
     mFnMatrixAttr = om.MFnMatrixAttribute()
-    noiseDeformer.locatorMatrix = mFnMatrixAttr.create("MatrixAttribute",
-                                                        "matAttr")
+    noiseDeformer.locatorMatrix = mFnMatrixAttr.create(
+        "MatrixAttribute",
+        "matAttr")
+
     mFnMatrixAttr.setStorable(False)
     mFnMatrixAttr.setConnectable(True)
 
