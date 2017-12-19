@@ -1,9 +1,3 @@
-'''
-Created on 12 dic. 2017
-
-@author: rafaellozano3d.com
-'''
-
 import sys
 import math
 import maya.OpenMaya as om

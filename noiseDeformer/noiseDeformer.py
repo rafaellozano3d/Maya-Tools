@@ -4,7 +4,7 @@ import maya.OpenMaya as om
 import maya.OpenMayaMPx as omp
 
 nodeTypeName = "noiseDeformer"
-nodeTypeId = om.MTypeId(0x33338)
+nodeTypeId = om.MTypeId(0x33344)
 
 
 def MAKE_INPUT(attr):
