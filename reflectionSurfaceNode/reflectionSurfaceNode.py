@@ -60,9 +60,9 @@ class reflectionSurfaceNode(omp.MPxNode):
         # hara que refleje desde el plano horizontal, podeis probar reflejar
         # desde un plano X o un plano Z
         planeNormal = om.MVector(
-            inputMatrixAttr_value(2, 0),
-            inputMatrixAttr_value(2, 1),
-            inputMatrixAttr_value(2, 2)).normal()
+            inputMatrixAttr_value(1, 0),
+            inputMatrixAttr_value(1, 1),
+            inputMatrixAttr_value(1, 2)).normal()
 
         # Obtenemos el punto central del plano, que definira pointR
         pointR = om.MVector(
